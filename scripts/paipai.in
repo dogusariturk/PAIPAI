@@ -41,6 +41,7 @@ P_EXCH_INTER=0
 INTSITE_NEIGHBOR_CUTOFF=3.5
 INTSITE_HOP_CUTOFF=3.0
 INTERSTITIAL_SITE_CUTOFF=1.5
+PACK_EVERY=0
 
 MC_EXTRA_ARGS=()
 
@@ -66,6 +67,8 @@ Worker options:
   --max-steps-screen N          Fast-worker max screen steps (default: ${MAX_STEPS_SCREEN})
   --fmax-refine X               Slow-worker refine fmax (default: ${FMAX_REFINE})
   --max-steps-refine N          Slow-worker max refine steps (default: ${MAX_STEPS_REFINE})
+  --pack-every MIN              Every MIN minutes, pack accepted states into mcprocess_packed/*.tar.gz,
+                                keeping 000001 and the newest 5 unpacked (default: ${PACK_EVERY} = off)
 
 Monte Carlo options:
   --steps N                     Run budget: fast-screened structures in search, MC proposals in finiteT (default: ${MC_STEPS})
@@ -106,6 +109,7 @@ while [[ $# -gt 0 ]]; do
         --max-steps-screen) MAX_STEPS_SCREEN="$2"; shift 2 ;;
         --fmax-refine) FMAX_REFINE="$2"; shift 2 ;;
         --max-steps-refine) MAX_STEPS_REFINE="$2"; shift 2 ;;
+        --pack-every) PACK_EVERY="$2"; shift 2 ;;
 
         --steps) MC_STEPS="$2"; shift 2 ;;
         --temp) MC_TEMP="$2"; shift 2 ;;
@@ -196,6 +200,27 @@ gpu_for_worker() {
     else
         echo "$idx"
     fi
+}
+
+# pack_states FLUSH: move accepted states from mcprocess/ into mcprocess_packed/, 200 per tar.gz.
+# 000001 (the relaxed starting structure) and the newest 5 states stay unpacked; --continue and
+# --resume-state only read the newest. FLUSH=1 also packs a last partial chunk.
+# Unpack before analysis: tar -xzf mcprocess_packed/states_A-B.tar.gz -C mcprocess
+pack_states() {
+    local mc="$ROOT_DIR/mcprocess" out="$ROOT_DIR/mcprocess_packed" names=() d i m n
+    for d in "$mc"/[0-9][0-9][0-9][0-9][0-9][0-9]; do
+        [[ -d "$d" && "${d##*/}" != 000001 ]] && names+=("${d##*/}")
+    done
+    n=$(( ${#names[@]} - 5 ))
+    mkdir -p "$out"
+    for (( i = 0; i < n; i += 200 )); do
+        m=$(( n - i < 200 ? n - i : 200 ))
+        (( m == 200 || $1 == 1 )) || break
+        local chunk=("${names[@]:i:m}")
+        tar -czf "$out/.tmp_pack.tar.gz" -C "$mc" "${chunk[@]}" &&
+            mv "$out/.tmp_pack.tar.gz" "$out/states_${chunk[0]}-${chunk[m-1]}.tar.gz" &&
+            (cd "$mc" && rm -rf "${chunk[@]}")
+    done
 }
 
 cleanup() {
@@ -339,6 +364,7 @@ echo "[INFO] Running C++ master..."
 MASTER_PID=$!
 
 # The master waits for worker results indefinitely, so stop as soon as any worker exits.
+LAST_PACK=$SECONDS
 while kill -0 "$MASTER_PID" 2>/dev/null; do
     for pid in "${PIDS[@]}"; do
         if ! kill -0 "$pid" 2>/dev/null; then
@@ -346,8 +372,15 @@ while kill -0 "$MASTER_PID" 2>/dev/null; do
             exit 1
         fi
     done
+    if (( PACK_EVERY > 0 && SECONDS - LAST_PACK >= PACK_EVERY * 60 )); then
+        pack_states 0 || true
+        LAST_PACK=$SECONDS
+    fi
     sleep 5
 done
 wait "$MASTER_PID"
+if (( PACK_EVERY > 0 )); then
+    pack_states 1 || true
+fi
 
 echo "[INFO] C++ master finished."
