@@ -891,6 +891,20 @@ bool process_report_file(const fs::path& root,
         return true;
     }
 
+    double hastings_ratio = 1.0;
+    std::string move_type = "<unknown>";
+    try {
+        std::ifstream meta_ifs(meta_path);
+        if (meta_ifs) {
+            json meta;
+            meta_ifs >> meta;
+            hastings_ratio = meta.value("hastings_ratio", 1.0);
+            move_type = meta.value("move_type", move_type);
+        }
+    } catch (...) {
+        hastings_ratio = 1.0;
+    }
+
     bool allow_interstitial_reassign = (mode == "search");
     Structure trial_ref;
     int n_reassigned = 0;
@@ -908,6 +922,7 @@ bool process_report_file(const fs::path& root,
         ++mc_steps;
         log << "STEP " << mc_steps
             << " proposal task_id=" << task_id
+            << " move=" << move_type
             << " E_new=" << std::setprecision(12) << E_final
             << " E_old=" << current_E
             << " -> REJECT_INTERSTITIAL_HOP\n";
@@ -925,19 +940,6 @@ bool process_report_file(const fs::path& root,
 
     // Normal MC proposal
     ++mc_steps;
-    double hastings_ratio = 1.0;
-    std::string move_type = "<unknown>";
-    try {
-        std::ifstream meta_ifs(meta_path);
-        if (meta_ifs) {
-            json meta;
-            meta_ifs >> meta;
-            hastings_ratio = meta.value("hastings_ratio", 1.0);
-            move_type = meta.value("move_type", move_type);
-        }
-    } catch (...) {
-        hastings_ratio = 1.0;
-    }
     bool accept = Accept(current_E, E_final, temp, rng, hastings_ratio);
     log << "STEP " << mc_steps
         << " proposal task_id=" << task_id
