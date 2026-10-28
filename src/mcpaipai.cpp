@@ -216,6 +216,7 @@ void copy_file_overwrite(const fs::path& src, const fs::path& dst) {
 
 bool initialize_from_resume_state(const fs::path& root,
                                   const fs::path& resume_dir,
+                                  const Args& cfg,
                                   double& current_E,
                                   bool& have_state,
                                   int& mc_steps,
@@ -238,6 +239,24 @@ bool initialize_from_resume_state(const fs::path& root,
     if (!energy || !std::isfinite(*energy)) {
         std::cerr << "[resume] missing valid energy in " << state_dir
                   << " (expected energy or meta.json)\n";
+        return false;
+    }
+
+    // The interstitial labels in SAVE are only valid for the cage cutoff (and build) the state
+    // was made with. Run the finiteT site check on the state itself: if it fails here, every
+    // trial from this state would be rejected as an interstitial hop.
+    Structure seed;
+    int n_reassigned = 0;
+    fs::path neigh_path = root / "intsite_metal_neighbors.dat";
+    if (!seed.readstruc(save.string().c_str()) ||
+        !seed.reconcileInterstitialSitesFromContcar(contcar.string().c_str(),
+                                                    neigh_path.string().c_str(),
+                                                    0, cfg.interstitial_site_cutoff,
+                                                    "", n_reassigned)) {
+        std::cerr << "[resume] " << state_dir << " fails the interstitial site check with"
+                  << " --intsite-neighbor-cutoff " << cfg.intsite_neighbor_cutoff
+                  << " --interstitial-site-cutoff " << cfg.interstitial_site_cutoff << ".\n"
+                  << "[resume] Use the cutoffs (and PAIPAI build) that produced this state.\n";
         return false;
     }
 
@@ -1065,7 +1084,7 @@ int main(int argc, char** argv){
     int accept_count = 0;
 
     if (cfg.continue_run) {
-        if (!initialize_from_resume_state(ROOT, resolved_resume_dir,
+        if (!initialize_from_resume_state(ROOT, resolved_resume_dir, cfg,
                                           current_E, have_state,
                                           mc_steps, accept_count, log)) {
             std::cerr << "[ERROR] failed to initialize from --continue state.\n";
@@ -1085,7 +1104,7 @@ int main(int argc, char** argv){
                   << " fast_screened=" << read_counter_value(ROOT, "fast_count")
                   << "\n";
     } else if (!cfg.resume_state_dir.empty()) {
-        if (!initialize_from_resume_state(ROOT, resolved_resume_dir,
+        if (!initialize_from_resume_state(ROOT, resolved_resume_dir, cfg,
                                           current_E, have_state,
                                           mc_steps, accept_count, log)) {
             std::cerr << "[ERROR] failed to initialize from --resume-state.\n";
