@@ -182,9 +182,20 @@ mkdir -p "$ROOT_DIR/fast" \
 PIDS=()
 WORKER_INDEX=0
 
+# CUDA_VISIBLE_DEVICES set by the scheduler, or by the user to choose GPUs, lists the GPUs this
+# run may use. Pick from that list instead of overriding it with 0..NGPU-1.
+VISIBLE_GPUS=()
+if [[ -n "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+    IFS=, read -r -a VISIBLE_GPUS <<< "$CUDA_VISIBLE_DEVICES"
+fi
+
 gpu_for_worker() {
-    local idx="$1"
-    echo $(( idx % NGPU ))
+    local idx=$(( $1 % NGPU ))
+    if (( ${#VISIBLE_GPUS[@]} > 0 )); then
+        echo "${VISIBLE_GPUS[$(( idx % ${#VISIBLE_GPUS[@]} ))]}"
+    else
+        echo "$idx"
+    fi
 }
 
 cleanup() {
