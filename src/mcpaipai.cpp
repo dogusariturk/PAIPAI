@@ -990,6 +990,11 @@ void wait_for_initial_state(const fs::path& root,
             );
             if (ok) processed_any = true;
             if (have_state) break;
+            // The initial relaxation is the only task in flight, so a report that did not
+            // give a state means it failed. Nothing else will arrive: stop instead of waiting.
+            std::cerr << "[ERROR] the initial relaxation failed (" << rep_path.filename()
+                      << "); see the slow-worker log and the messages above.\n";
+            std::exit(1);
         }
 
         if (!processed_any) {
