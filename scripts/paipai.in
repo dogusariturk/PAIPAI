@@ -26,6 +26,7 @@ POOL_CAP=128
 ROOT_DIR="$(pwd)"
 ROOT_EXPLICIT=0
 RESUME_STATE=""
+CONTINUE=0
 FMAX_SCREEN=0.10
 MAX_STEPS_SCREEN=30
 FMAX_REFINE=0.01
@@ -55,6 +56,7 @@ Basic options:
   --ngpu N                      Number of GPUs for round-robin assignment (default: ${NGPU})
   --root DIR                    Root working directory (default: current directory)
   --resume-state DIR            Resume finiteT from a state directory, or from the latest numbered child if DIR is mcprocess
+  --continue                    Continue the run in --root from its latest accepted state
 
 Worker options:
   --fast N                      Number of fast workers (default: ${NUM_FAST})
@@ -95,6 +97,7 @@ while [[ $# -gt 0 ]]; do
         --ngpu) NGPU="$2"; shift 2 ;;
         --root) ROOT_DIR="$2"; ROOT_EXPLICIT=1; shift 2 ;;
         --resume-state) RESUME_STATE="$2"; shift 2 ;;
+        --continue) CONTINUE=1; MC_EXTRA_ARGS+=("$1"); shift ;;
 
         --fast) NUM_FAST="$2"; shift 2 ;;
         --slow) NUM_SLOW="$2"; shift 2 ;;
@@ -207,6 +210,31 @@ echo "[INFO] Move weights: swap_metal=$P_SWAP_METAL, swap_inter=$P_SWAP_INTER, h
 echo "[INFO] INTSITE_NEIGHBOR_CUTOFF = $INTSITE_NEIGHBOR_CUTOFF"
 echo "[INFO] INTSITE_HOP_CUTOFF = $INTSITE_HOP_CUTOFF"
 echo "[INFO] INTERSTITIAL_SITE_CUTOFF = $INTERSTITIAL_SITE_CUTOFF"
+
+if [[ "$CONTINUE" -eq 1 ]]; then
+    # A job killed during a relaxation leaves the claimed task in waiting_work/, and possibly a
+    # result without a report in refine_outbox/. No worker picks these up again, and a finiteT
+    # master waits for them forever. Before any worker starts, requeue tasks that never produced
+    # a result and drop results that never got a report.
+    for d in "$ROOT_DIR"/waiting_work/*/; do
+        [[ -d "$d" ]] || continue
+        id="$(basename "$d")"
+        if [[ -e "$ROOT_DIR/reports/$id.json" || -e "$ROOT_DIR/refine_outbox/$id" ]]; then
+            rm -rf "$d"
+        else
+            mv "$d" "$ROOT_DIR/waiting_pool/$id"
+            echo "[INFO] requeued unfinished task $id"
+        fi
+    done
+    for d in "$ROOT_DIR"/refine_outbox/*/; do
+        [[ -d "$d" ]] || continue
+        id="$(basename "$d")"
+        if [[ ! -e "$ROOT_DIR/reports/$id.json" ]]; then
+            rm -rf "$d"
+            echo "[INFO] dropped result without a report: $id"
+        fi
+    done
+fi
 
 if [[ "$MODE" == "finiteT" ]]; then
     echo "[INFO] finiteT mode: skipping fast workers."
