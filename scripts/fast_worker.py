@@ -16,7 +16,7 @@ Fast worker: screen-only relaxation into waiting_pool.
 """
 print("FAST WORKER START", flush=True)
 
-import os, sys, json, time, tempfile, signal, uuid
+import inspect, os, sys, json, time, tempfile, signal, uuid
 from pathlib import Path
 from typing import Optional
 from pymatgen.core import Structure
@@ -173,13 +173,15 @@ def main():
     gof    = FAST / f".go_{k}"
     donef  = FAST / f".done_{k}"
 
-    calc = GraceCalculator(
-        model=args.model,
-        device=args.device,
-        verbose=True,
-        fmax=args.fmax_screen,
-        steps=args.max_steps_screen,
-    )
+    # MaterialsFramework 1.x GraceCalculator has no device= option (passing it fails in
+    # object.__init__). TensorFlow uses the GPU the wrapper exposes in CUDA_VISIBLE_DEVICES,
+    # so only --device cpu needs handling: hide every GPU.
+    calc_kwargs = dict(model=args.model, verbose=True, fmax=args.fmax_screen, steps=args.max_steps_screen)
+    if "device" in inspect.signature(GraceCalculator).parameters:
+        calc_kwargs["device"] = args.device
+    elif args.device == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    calc = GraceCalculator(**calc_kwargs)
     sys.stderr.write(f"[fast {k}] initialized @ {ROOT}\n")
 
     stop = {"flag": False}
