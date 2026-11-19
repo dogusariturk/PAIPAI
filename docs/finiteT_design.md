@@ -111,6 +111,26 @@ When `--resume-state` is used, PAIPAI skips the initial relaxation and begins fi
 
 Use `SAVE`, not `REFERENCE_SAVE`, as the resumed occupation state. `REFERENCE_SAVE` records the pre-relaxation trial, while `SAVE` records the reconciled accepted state.
 
+PAIPAI checks the resumed state against the current `--intsite-neighbor-cutoff` and `--interstitial-site-cutoff` before sampling and stops if it fails. Without this check, a state made with different cutoffs would make nearly every trial fail as an interstitial hop. Use the cutoffs of the run that produced the state.
+
+---
+
+# Continuing An Interrupted Run
+
+To continue a run that stopped, start it again in the same `--root` with `--continue` in place of `--input` or `--resume-state`:
+
+```bash
+paipai --mode finiteT --root finiteT_700 --continue --temp 700
+```
+
+PAIPAI continues from the latest state in `mcprocess/`. Before any worker starts, the `paipai` wrapper moves tasks that never produced a result from `waiting_work/` back to `waiting_pool/` and deletes results in `refine_outbox/` that never got a report, so no proposal is evaluated twice. The resumed state goes through the same cutoff check as `--resume-state`.
+
+---
+
+# Random Seed
+
+`--seed N` seeds the random numbers used for moves and for the Metropolis test. The seed is printed and written to the `mc.log` header. Without `--seed`, PAIPAI draws a seed from `std::random_device`, so chains started at the same time still get different seeds. The seed also fixes the random starting structure when `struc.in` uses `Shuffle`. Running again with the same seed and input repeats the same proposals, as long as the relaxations return the same energies.
+
 ---
 
 # Relaxation Accuracy

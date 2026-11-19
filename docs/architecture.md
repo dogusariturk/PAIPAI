@@ -124,7 +124,7 @@ The reference site ordering in `SAVE` is fixed. `CONTCAR` is ordered by atom spe
 When generating a new trial `POSCAR`, PAIPAI seeds coordinates from the accepted `CONTCAR` for efficiency:
 - relaxed metal coordinates are reused
 - already occupied interstitial sites reuse their relaxed interstitial coordinates when the site remains occupied
-- newly occupied interstitial sites are placed by updating the target site from its relaxed metal cage
+- newly occupied interstitial sites start from the reference site carried to the same fractional position in the relaxed cell, then move by the average displacement of their relaxed metal cage
 
 The trial `SAVE` still stores only the reference occupation state.
 
@@ -142,6 +142,8 @@ Required state files:
 The resumed `SAVE` is the accepted reference state. This is important for search outputs because `SAVE` may include relaxed interstitial reassignment, while `REFERENCE_SAVE` only records the trial before relaxation.
 
 If `--resume-state` points at an `mcprocess` directory rather than one numbered state, PAIPAI selects the latest numbered child directory. Resume mode does not require an input structure file.
+
+Before sampling starts, PAIPAI runs the finiteT site check on the resumed state with the current `--intsite-neighbor-cutoff` and `--interstitial-site-cutoff`. The interstitial labels in `SAVE` are only valid for the cutoffs that produced them, so a state that fails the check stops the run with an error naming both cutoffs. Resume with the cutoffs of the run that produced the state. The same check applies to `--continue`.
 
 ---
 
