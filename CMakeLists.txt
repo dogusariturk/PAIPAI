@@ -45,6 +45,20 @@ target_link_libraries(mc_paipai PRIVATE stdc++fs pthread)
 target_link_libraries(warrencowley PRIVATE stdc++fs)
 target_link_libraries(packmc PRIVATE stdc++fs)
 
+option(PAIPAI_BUILD_TESTS "Build regression tests (run with ctest)" OFF)
+if (PAIPAI_BUILD_TESTS)
+    enable_testing()
+    add_executable(test_cell_rescale
+        tests/test_cell_rescale.cpp
+        src/constants.cpp
+        src/element.cpp
+        src/structure.cpp
+    )
+    target_include_directories(test_cell_rescale PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME cell_rescale COMMAND test_cell_rescale
+             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
 install(TARGETS mc_paipai
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

@@ -99,6 +99,19 @@ static vector<Real> minimum_image_delta(const vector<Real>& delta,
     return matvec_cell(f[0], f[1], f[2], a, b, c);
 }
 
+// Map a Cartesian point of the reference cell to the same fractional position in the
+// relaxed cell (a, b, c). Reference interstitial sites are stored in the reference-cell
+// frame, so they must be carried into the relaxed cell before the cage displacement
+// (computed in the relaxed cell) is added; otherwise a variable-cell relaxation misplaces
+// every site in proportion to its distance from the origin.
+static vector<Real> carry_to_cell(const vector<Real>& r, Real old_inv[3][3],
+                                  const vector<Real>& a,
+                                  const vector<Real>& b,
+                                  const vector<Real>& c){
+    vector<Real> f = cart_to_frac(r, old_inv);
+    return matvec_cell(f[0], f[1], f[2], a, b, c);
+}
+
 static bool line_all_ints(const string& line){
     stringstream ss(line);
     string tok;
@@ -1000,9 +1013,13 @@ int Structure::updateCoordinatesFromContcar(const char* contcar_filename, const 
 
                 Real invn = 1.0 / (Real)intsite_metal_neighbors[s].size();
 
-                new_int[s][0] = old_int[s][0] + avg[0] * invn;
-                new_int[s][1] = old_int[s][1] + avg[1] * invn;
-                new_int[s][2] = old_int[s][2] + avg[2] * invn;
+                vector<Real> base = (has_old_inv && has_new_inv)
+                        ? carry_to_cell(old_int[s], old_inv, new_a, new_b, new_c)
+                        : old_int[s];
+
+                new_int[s][0] = base[0] + avg[0] * invn;
+                new_int[s][1] = base[1] + avg[1] * invn;
+                new_int[s][2] = base[2] + avg[2] * invn;
         }
 
         // Wrap interstitial site positions into the new cell.
@@ -1224,9 +1241,12 @@ int Structure::seedTrialCoordinatesFromContcar(const Structure& current_ref,
                 }
 
                 Real invn = 1.0 / (Real)intsite_metal_neighbors[s].size();
-                cage_int[s][0] = old_int[s][0] + avg[0] * invn;
-                cage_int[s][1] = old_int[s][1] + avg[1] * invn;
-                cage_int[s][2] = old_int[s][2] + avg[2] * invn;
+                vector<Real> base = (has_old_inv && has_new_inv)
+                        ? carry_to_cell(old_int[s], old_inv, new_a, new_b, new_c)
+                        : old_int[s];
+                cage_int[s][0] = base[0] + avg[0] * invn;
+                cage_int[s][1] = base[1] + avg[1] * invn;
+                cage_int[s][2] = base[2] + avg[2] * invn;
         }
 
         if (has_new_inv){
