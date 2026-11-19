@@ -20,6 +20,7 @@ Slow worker: refine-only, consuming jobs from waiting_pool.
 
 import os, sys, json, time, tempfile, signal
 from pathlib import Path
+import numpy as np
 from pymatgen.core import Structure
 from pymatgen.io.vasp import Poscar
 from materialsframework.calculators import GraceCalculator
@@ -133,6 +134,9 @@ def normalize_relax_result(res):
         converged = True
 
     max_force = res.get("max_force", res.get("fmax", None))
+    if max_force is None and res.get("forces") is not None:
+        # largest atomic force at the end of the relaxation
+        max_force = np.linalg.norm(np.asarray(res["forces"]), axis=1).max()
     if max_force is not None:
         max_force = float(max_force)
     return float(res["energy"]), res["final_structure"], bool(converged), max_force
@@ -144,7 +148,11 @@ def relax_with_partial_result(calc, struct):
     exception but attaches a result dictionary, use that partial result too.
     """
     try:
-        return normalize_relax_result(calc.relax(struct))
+        res = calc.relax(struct)
+        # MaterialsFramework calculators report convergence as an attribute, not a result key.
+        if isinstance(res, dict) and "converged" not in res and getattr(calc, "converged", None) is not None:
+            res = {**res, "converged": calc.converged}
+        return normalize_relax_result(res)
     except Exception as exc:
         partial = None
         for attr in ("result", "results", "relax_result", "relax_results"):
