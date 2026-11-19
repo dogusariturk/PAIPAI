@@ -189,7 +189,7 @@ gpu_for_worker() {
 
 cleanup() {
     echo "[INFO] Cleaning up workers..."
-    for pid in "${PIDS[@]:-}"; do
+    for pid in "${PIDS[@]:-}" "${MASTER_PID:-}"; do
         kill "$pid" 2>/dev/null || true
     done
 }
@@ -308,7 +308,7 @@ done
 echo "[INFO] Running C++ master..."
 (
     cd "$ROOT_DIR"
-    "$MASTER" "${MC_INPUT_ARGS[@]}" \
+    exec "$MASTER" "${MC_INPUT_ARGS[@]}" \
         --mode "$MODE" \
         --workers "$NUM_FAST" \
         --steps "$MC_STEPS" \
@@ -324,6 +324,19 @@ echo "[INFO] Running C++ master..."
         --interstitial-site-cutoff "$INTERSTITIAL_SITE_CUTOFF" \
         "${MC_RESUME_ARGS[@]}" \
         "${MC_EXTRA_ARGS[@]}"
-)
+) &
+MASTER_PID=$!
+
+# The master waits for worker results indefinitely, so stop as soon as any worker exits.
+while kill -0 "$MASTER_PID" 2>/dev/null; do
+    for pid in "${PIDS[@]}"; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "[ERROR] a worker (pid $pid) exited while the master was running; see the worker logs in $ROOT_DIR"
+            exit 1
+        fi
+    done
+    sleep 5
+done
+wait "$MASTER_PID"
 
 echo "[INFO] C++ master finished."
