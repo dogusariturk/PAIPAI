@@ -1,649 +1,170 @@
 <div align="center">
-<img width="400" alt="logo" src="logo.png"/>
-</div>
 
-# Package for Alloy Interstitial Predictions using Artificial Intelligence (PAIPAI)
+<img width="200" alt="PAIPAI-logo" src="logo.png"/>
+
+# Package for Alloy Interstitial Predictions using Artificial Intelligence<br>(PAIPAI)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://spdx.org/licenses/MIT.html)
+![C++](https://img.shields.io/badge/C%2B%2B-17-blue)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20macos-lightgrey)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21480012.svg)](https://doi.org/10.5281/zenodo.21480012)
+[![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.commatsci.2026.114752-blue)](https://doi.org/10.1016/j.commatsci.2026.114752)
+
+`PAIPAI` searches for low-energy configurations of multi-component alloys with interstitials and defects by combining Monte Carlo sampling with machine learning interatomic potentials (MLIPs). This repository is a fork of [siyazhu/PAIPAI](https://github.com/siyazhu/PAIPAI) v2.0 by Siya Zhu with bug fixes and two new options, `--seed` and `--pack-every`.
 
 <p>
-PAIPAI is a versatile computational tool designed to efficiently search for crystalline metallic structures—especially those containing interstitials, point defects, grain boundaries, or surface slabs—with the lowest free energy.
-By combining Monte Carlo sampling techniques with machine-learning interatomic potentials (MLIPs), PAIPAI enables rapid and accurate exploration of vast configurational spaces that are traditionally inaccessible to first-principles methods alone.
+  <a href="https://github.com/dogusariturk/PAIPAI/issues/new?labels=bug">Report a Bug</a> |
+  <a href="https://github.com/dogusariturk/PAIPAI/issues/new?labels=enhancement">Request a Feature</a>
 </p>
 
-<p>
-PAIPAI is particularly designed for:
-</p>
-
-- High-entropy alloys (HEAs)
-- Interstitial solutes (O, B, C, N, etc.)
-- Defect-containing structures
-- Large-scale chemically disordered systems
-- Ground-state structure search
-- Finite-temperature Monte Carlo sampling
-
-<p>
-  <a href="https://github.com/siyazhu/PAIPAI/issues/new?labels=bug">Report a Bug</a> |
-  <a href="https://github.com/siyazhu/PAIPAI/issues/new?labels=enhancement">Request a Feature</a>
-</p>
+</div>
 
 ---
 
-# Versions
+## Key Features
 
-## Stable version (`main`)
-
-The `main` branch contains the original stable PAIPAI implementation.
-
-Recommended for:
-- reproducing older calculations
-- conservative production workflows
-- users who prefer a more established version
-
----
-
-## Development version (`v2.0-dev`)
-
-The `v2.0-dev` branch contains the new PAIPAI v2.0 framework.
-
-Major updates include:
-- GPU-supported MLIP calculations
-- new `search` and `finiteT` modes
-- improved structure-update workflow after relaxation
-- explicit reference-state tracking with `SAVE`, `REFERENCE_SAVE`, and relaxed `CONTCAR`
-- mode-dependent handling of interstitial site hopping
-- reduced relaxation cost
-- cleaner output handling
-- multiple bug fixes
-
-The v2.0 branch is currently under active development and testing.
+- Search for low-energy structures with two kinds of workers: fast workers screen trial structures with short relaxations, and slow workers refine the promising ones (`search` mode)
+- Sample finite-temperature ensembles with sequential Markov-chain Monte Carlo (`finiteT` mode), and repeat a run with `--seed`
+- Propose metal swaps, interstitial swaps, cluster interstitial moves, and local interstitial hops, with adjustable weights
+- Handle bulk, grain-boundary, and slab structures with interstitial solutes such as B, C, N, and O
+- Move the interstitial sites with the cell when a relaxation changes the cell shape
+- Relax and evaluate structures with MLIPs through [MaterialsFramework](https://github.com/dogusariturk/MaterialsFramework) on CPU or GPU
+- Start from an earlier run's state (`--resume-state`) or continue an interrupted run (`--continue`); PAIPAI checks the state against the run's cutoffs and requeues tasks the interrupted run left unfinished
+- Pack accepted states into `tar.gz` archives during a run (`--pack-every`)
+- Stop the whole run as soon as any worker exits
+- Build `struc.in` input files from a metal-only POSCAR with `findinter`
+- Post-process accepted states with `warrencowley` (Warren-Cowley short-range order) and `packmc` (CONTCAR archive and summary table)
 
 ---
 
-# Features
+## Installation
 
-- MLIP-based structure optimizations and energy evaluations
-- Efficient Monte Carlo simulations
-- Parallel worker-based structure search
-- Finite-temperature Markov-chain Monte Carlo sampling
-- Supports complex multi-element metallic systems with interstitials and various defect-containing structures
-- GPU-supported MLIP calculations
-- Dual-worker search workflow for efficient ground-state exploration
+### Prerequisites
 
----
+- CMake ≥ 3.15
+- C++17 compiler (GCC or Clang)
+- Python 3.12 and [uv](https://docs.astral.sh/uv/)
+- [MaterialsFramework](https://github.com/dogusariturk/MaterialsFramework) with an MLIP extra (GRACE for the default model)
+- (Optional) NVIDIA GPU with CUDA for `--device cuda`
 
-# Repository Structure
+### Build Instructions
 
-```text
-PAIPAI/
-├── examples/
-├── include/
-├── scripts/
-├── src/
-├── CMakeLists.txt
-└── README.md
-```
-
-- `src/` : C++ source files
-- `include/` : C++ header files
-- `scripts/` : Python workers and PAIPAI launch scripts
-- `examples/` : example input files and SLURM scripts
-
----
-
-# Installation
-
-## Dependencies
-
-PAIPAI relies on the external MLIP infrastructure provided by MaterialsFramework:
-
-https://github.com/dogusariturk/MaterialsFramework
-
-Please install MaterialsFramework and ensure the corresponding Python environment is properly configured before using PAIPAI.
-
-Typical dependencies include:
-- pymatgen
-- TensorFlow
-- MLIP models
-- materialsframework package
-
-Users should verify that the following command works correctly before running PAIPAI:
+**1. Clone the repository**
 
 ```bash
-python -c "import materialsframework"
-```
----
-
-## Prerequisites
-
-- CMake ≥ 3.10
-- C++17 compatible compiler (e.g. GCC, Clang)
-- Python 3
-- MaterialsFramework
-
----
-
-## Clone repository
-
-```bash
-git clone https://github.com/siyazhu/PAIPAI.git
+git clone https://github.com/dogusariturk/PAIPAI.git
 cd PAIPAI
 ```
 
-To use the development version:
+**2. Create the Python environment for the workers**
 
 ```bash
-git checkout v2.0-dev
+uv venv --python 3.12
+uv pip install "materialsframework[grace]"
 ```
 
----
-
-# Build and Install (PAIPAI v2.0)
+**3. Build and install**
 
 ```bash
-mkdir build
-cd build
-
-cmake .. -DCMAKE_INSTALL_PREFIX=$HOME
-
-cmake --build .
-
-cmake --install .
-```
-
-This installs:
-
-```text
-$HOME/bin/paipai
-$HOME/bin/mc_paipai
-$HOME/bin/findinter
-$HOME/bin/fast_worker.py
-$HOME/bin/slow_worker.py
-```
-
-If necessary, add `$HOME/bin` to your PATH:
-
-```bash
-export PATH="$HOME/bin:$PATH"
-```
-
-You may add this line to your `~/.bashrc`.
-
----
-
-# Legacy Compilation (Original Version)
-
-The original implementation can still be compiled manually:
-
-```bash
-g++ -std=c++17 -O2 -pthread \
-constants.cpp mcpaipai.cpp element.cpp structure.cpp \
--o mc_paipai -lstdc++fs
-```
-
----
-
-# Basic Usage
-
-After installation:
-
-```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
+  -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
+cmake --build build -j 8
+cmake --install build
 paipai --help
-findinter --help
 ```
 
-For detailed `findinter` guidance, see:
-
-```text
-docs/findinter.md
-```
+> [!NOTE]
+> This installs `paipai`, `mc_paipai`, `findinter`, `warrencowley`, `packmc`, and the worker scripts into `~/.local/bin`. Add `~/.local/bin` to your `PATH` if it isn't there already. The `paipai` wrapper runs the workers with `.venv/bin/python`; set `PAIPAI_PYTHON` to use a different Python.
 
 ---
 
-# Building `struc.in` With `findinter`
+## Quickstart
 
-`findinter` helps generate PAIPAI `struc.in` files from a metal-only POSCAR.
-
-Typical usage:
+### Input structure
 
 ```bash
-findinter \
-  --input POSCAR \
-  --inter B,O \
-  --internum 4,5 \
-  --output struc.in \
-  --site-poscar interstitial_sites.vasp \
-  --gn 50 \
-  --min-void-factor 1.0 \
-  --max-void-factor 2.0
+findinter --input POSCAR --inter B --internum 8 --gn 100 \
+  --output struc.in --site-poscar interstitial_sites.vasp
 ```
 
-The first time `findinter` is run in a directory, if `radii.dat` does not exist, it writes a default file and exits. Inspect or edit `radii.dat`, then rerun the same command.
+> [!NOTE]
+> On its first run in a directory, `findinter` writes a default `radii.dat` and exits. Check the radii, then run the same command again. See [docs/findinter.md](docs/findinter.md) for the site-search parameters.
 
-`radii.dat` contains effective hard-sphere radii for the metal species and a single `Interstitial` radius. These radii are site-search parameters, not fixed tabulated atomic radii. The default metal radii are initialized to the minimum built-in radius among the metal species; `Interstitial` is initialized to the minimum built-in radius among the requested interstitial species.
-
-The current algorithm performs a fractional-cell grid scan, keeps points inside a nearest-metal distance window, and then selects sites iteratively from the clearance field. After one interstitial site is selected, all grid points within `2*r_interstitial*min_void_factor` are suppressed to a very large negative clearance so nearby points are removed and surrounding points can become new local maxima in later iterations. It does not optimize large-void packing.
-
-For a 5x5x5 BCC-like NbTaTiHf bulk example with 250 metal atoms, the following effective parameters identify the expected 1500 tetrahedral candidate sites:
-
-```text
-Nb 1.428
-Ta 1.428
-Ti 1.428
-Hf 1.428
-Interstitial 0.55
-```
-
-using:
+### Ground-state search
 
 ```bash
-findinter \
-  --input POSCAR_metal_only \
-  --inter B \
-  --internum 4 \
-  --gn 100 \
-  --min-void-factor 0.9 \
-  --max-void-factor 1.2 \
-  --output struc.in \
-  --site-poscar interstitial_sites.vasp
+paipai --input struc.in --mode search --device cpu \
+  --fast 15 --slow 15 --steps 2000 --temp 10 --p-cluster-inter 0
 ```
 
-Useful options:
+A low Monte Carlo temperature works best for structure search.
 
-| Option | Description |
-|---|---|
-| `--gn N` | Use the same grid count `N` along x, y, and z |
-| `--gnx N --gny N --gnz N` | Use explicit grid counts along x, y, and z; all three must be provided together |
-| `--gstep X` | Derive grid counts from a target Cartesian grid step `X` in Angstrom |
-| `--max-sites N` | Maximum candidate sites to write; `0` means no limit |
-| `--site-poscar FILE` | Optional POSCAR containing the metal atoms plus one H marker atom at every candidate interstitial site |
-| `--min-void-factor X` | Require the nearest-metal distance to satisfy `d >= X*(r_metal+r_interstitial)` |
-| `--max-void-factor X` | Reject sites farther than `X*(r_metal+r_interstitial)` from the nearest metal |
-| `--merge-distance X` | Optional extra merge distance for nearly duplicate selected sites |
-
-Exactly one grid-input mode must be used in each `findinter` command:
-- `--gn`
-- `--gnx --gny --gnz`
-- `--gstep`
-
----
-
-# Running PAIPAI
-
-## Search mode
-
-`search` mode uses a dual-worker architecture:
-- fast workers perform coarse screening relaxations
-- slow workers perform refinement relaxations
-
-This mode supports many parallel workers and is mainly intended for:
-- ground-state search
-- low-temperature structure optimization
-- rapid screening
-
-Typical usage:
+### Finite-temperature sampling
 
 ```bash
-paipai \
-  --input struc.in \
-  --mode search \
-  --device cpu \
-  --fast 15 \
-  --slow 15 \
-  --steps 2000 \
-  --temp 10 \
-  --p-cluster-inter 0
+paipai --input struc.in --mode finiteT --device cuda --ngpu 1 \
+  --fast 0 --slow 1 --steps 200000 --temp 700 --p-cluster-inter 0 \
+  --seed 1 --pack-every 60
 ```
 
-A relatively low Monte Carlo temperature is generally recommended for structure search.
+To start a chain from the end of a search, replace `--input struc.in` with `--resume-state <search run>/mcprocess`, which picks up the latest accepted state. To continue a stopped run, rerun it in the same `--root` with `--continue` in place of `--input` or `--resume-state`.
 
----
-
-## Finite-temperature mode
-
-`finiteT` mode performs proper sequential Markov-chain Monte Carlo sampling.
-
-Characteristics:
-- uses only one slow worker
-- does NOT support parallel MC chains
-- generates unbiased finite-temperature ensembles
-
-Typical usage:
+### Analysis
 
 ```bash
-paipai \
-  --input struc.in \
-  --mode finiteT \
-  --device cuda \
-  --ngpu 1 \
-  --fast 0 \
-  --slow 1 \
-  --steps 200000 \
-  --temp 700 \
-  --p-cluster-inter 0
-```
-
----
-
-# GPU Support
-
-PAIPAI v2.0 supports GPU-accelerated MLIP relaxation and energy evaluation.
-
-To use GPU acceleration:
-
-```bash
---device cuda
-```
-
-Users may refer to the scripts in:
-
-```text
-examples/
-```
-
-for example GPU submission scripts.
-
----
-
-# Command-Line Options
-
-## Basic options
-
-| Option | Description |
-|---|---|
-| `--input FILE` | Input structure file. Not required when `--resume-state` or `--continue` is used |
-| `--mode MODE` | `search` or `finiteT` |
-| `--device DEV` | `cpu` or `cuda` |
-| `--model NAME` | MLIP model |
-| `--root DIR` | Working directory. If omitted for `finiteT --resume-state`, PAIPAI uses `finiteT_<temp>` |
-| `--resume-state DIR` | Start from an existing state directory containing `SAVE`, `CONTCAR`, and `energy` or `meta.json`. If `DIR` is an `mcprocess` directory, the latest numbered state is used |
-| `--continue` | Continue an interrupted run in the current root from the latest `mcprocess/000xxx` state |
-
----
-
-## Worker options
-
-| Option | Description |
-|---|---|
-| `--fast N` | Number of fast workers |
-| `--slow N` | Number of slow workers |
-| `--ngpu N` | Number of GPUs used for round-robin worker assignment |
-| `--pool-cap N` | Waiting-pool capacity |
-
----
-
-## Monte Carlo options
-
-| Option | Description |
-|---|---|
-| `--steps N` | Run budget. In `search`, this is the number of structures processed by fast screening (`counters/fast_count`). In `finiteT`, this is the number of processed MC proposals. |
-| `--temp T` | Monte Carlo temperature |
-| `--p-swap-metal N` | Weight for metal swap moves |
-| `--p-swap-inter N` | Weight for interstitial swap moves |
-| `--p-hop-inter N` | Weight for local interstitial hop moves between nearby interstitial sites |
-| `--p-cluster-inter N` | Weight for cluster interstitial swap moves |
-| `--intsite-neighbor-cutoff X` | Cutoff for interstitial-site neighbor mapping |
-| `--intsite-hop-cutoff X` | Cutoff for the local interstitial-hop neighbor graph |
-| `--interstitial-site-cutoff X` | Maximum distance for assigning a relaxed interstitial atom to a reference site |
-
----
-
-# Major Updates in v2.0
-
-## 1. MLIP-based structure-update workflow
-
-PAIPAI v2.0 introduces a new workflow for updating structural information after MLIP relaxation.
-
-### (1) Metal-coordinate update
-
-After each relaxation:
-- relaxed metal coordinates are written back into the structure file
-- subsequent relaxations therefore start closer to equilibrium structures
-
-This significantly reduces the average number of optimization steps.
-
-### (2) Interstitial-site coordinate update
-
-For interstitial sites:
-- neighboring metal atoms are determined using a cutoff distance
-- the neighbor mapping is stored in:
-
-```text
-intsite_metal_neighbors.dat
-```
-
-Local interstitial hop proposals use a separate cached site-site neighbor graph:
-
-```text
-intsite_hop_neighbors.dat
-```
-
-PAIPAI now separates the discrete reference state from the relaxed physical structure:
-
-- `SAVE` stores the current reference lattice and site occupations.
-- `REFERENCE_SAVE` stores the reference state used to launch a relaxed task.
-- `CONTCAR` stores the relaxed physical coordinates.
-
-When a new trial is generated, PAIPAI seeds the trial `POSCAR` from the current relaxed `CONTCAR` for efficiency. Existing occupied interstitial atoms reuse their relaxed positions when possible. Newly occupied interstitial sites are repositioned from their local relaxed metal cage instead of using stale reference coordinates.
-
-After slow relaxation, interstitial atoms are matched back to candidate sites using `--interstitial-site-cutoff`.
-
-In `finiteT` mode, interstitial hopping during relaxation is rejected so that the Markov chain remains a well-defined site-occupation ensemble. In `search` mode, relaxed interstitial hopping is allowed; PAIPAI reassigns the occupation to the nearest valid site and rewrites the task `CONTCAR` so that its atom ordering remains consistent with the updated `SAVE`.
-
-The initial slow relaxation is used to establish the starting `SAVE`/`CONTCAR` state. If the calculator reaches `--max-steps-refine` and still returns a final structure and energy, PAIPAI accepts that returned geometry as the initial state and records the convergence metadata in the worker output.
-
----
-
-## 2. New `search` and `finiteT` modes
-
-PAIPAI v2.0 now supports two distinct workflows.
-
-### `search` mode
-- dual-worker architecture
-- many-worker parallel execution
-- optimized for structure search and ground-state exploration
-- allows relaxed interstitial atoms to be reassigned to nearby candidate sites
-
-### `finiteT` mode
-- sequential Markov-chain Monte Carlo
-- single slow-worker workflow
-- unbiased finite-temperature ensemble sampling
-- rejects trials where relaxation moves an interstitial atom to a different site
-
-Both modes can resume from a saved state selected during `search` or `finiteT`:
-
-```bash
-paipai --mode finiteT --resume-state search/mcprocess/000031 --temp 700
-```
-
-You can also point directly at an `mcprocess` directory:
-
-```bash
-paipai --mode finiteT --resume-state search/mcprocess --temp 700
-```
-
-In that case PAIPAI uses the latest numbered child directory. The resumed state uses `SAVE` as the reference occupation, `CONTCAR` as the relaxed coordinate seed, and `energy` as the current energy. `--input` is not required in resume mode. If `--root` is omitted, the run directory defaults to `finiteT_<temp>`, such as `finiteT_700`.
-
-To continue an interrupted or too-short run in the same root directory, use:
-
-```bash
-paipai --mode search --continue --steps 300000
-paipai --mode finiteT --continue --steps 20000
-```
-
-`--continue` automatically reads the latest accepted state from `mcprocess/`, restores `SAVE` and `CONTCAR`, keeps existing worker queues and counters, appends to `mc.log`, and continues until the requested step budget is reached. In `search`, the budget is still compared against `counters/fast_count`; in `finiteT`, PAIPAI resumes the proposal number from the latest `STEP` entry in `mc.log`.
-
----
-
-## 3. Cluster interstitial swap move
-
-PAIPAI v2.0-dev includes an optional cluster interstitial move:
-
-- two interstitial sites with different occupations are selected
-- their interstitial occupations are swapped
-- the metal atoms neighboring either interstitial site are collected from `intsite_metal_neighbors.dat`
-- the metal atom types in that neighbor union are randomly shuffled once
-
-This move is controlled by:
-
-```bash
---p-cluster-inter N
-```
-
-The default value is `0`, so existing runs are unchanged unless this move is explicitly enabled.
-
----
-
-## 4. Local interstitial hop move
-
-PAIPAI v2.0-dev also includes an optional local interstitial hop move for `finiteT` sampling:
-
-- neighboring interstitial-site pairs are cached in `intsite_hop_neighbors.dat`
-- a valid proposal swaps two nearby sites with different interstitial occupations
-- this supports multiple interstitial species, not only occupied-empty pairs
-- finiteT acceptance includes the Hastings factor from the number of valid forward and reverse local-hop edges
-
-This move is useful when global interstitial swaps mostly move atoms out of a low-energy region. Enable it with:
-
-```bash
---p-hop-inter 80 --p-swap-inter 20 --intsite-hop-cutoff 3.0
-```
-
-The default `--p-hop-inter 0` preserves existing behavior.
-
----
-
-## 5. `findinter` input builder
-
-PAIPAI v2.0-dev includes `findinter`, a standalone utility for constructing PAIPAI `struc.in` files from metal-only POSCAR files.
-
-`findinter`:
-- generates or reads an effective `radii.dat`
-- scans the periodic cell on a fractional grid
-- identifies candidate interstitial sites using a hard-sphere distance window
-- writes PAIPAI `struc.in`
-- optionally writes a POSCAR visualization with candidate sites marked as H atoms
-
-This is intended as a practical input-building tool for bulk, defect, grain-boundary, and surface structures where interstitial site lists are not already available.
-
----
-
-## 6. MC-process analysis tools
-
-PAIPAI v2.0-dev includes small command-line tools for post-processing accepted MC states.
-
-To compute Warren-Cowley parameters for all accepted states in the current run directory:
-
-```bash
-warrencowley --inter-metal-cutoff 2.5
-```
-
-By default, neighbor distances are computed from the relaxed `CONTCAR` atom coordinates. To compute the same statistics on the saved reference lattice and occupation instead, use:
-
-```bash
-warrencowley -ref --inter-metal-cutoff 2.5
-```
-
-You can also compute metal-metal Warren-Cowley parameters, or request both in one run:
-
-```bash
-warrencowley --metal-metal-cutoff 3.0
 warrencowley --inter-metal-cutoff 2.5 --metal-metal-cutoff 3.0
-```
-
-At least one cutoff must be provided. By default, `warrencowley` looks for `mcprocess/` under the current directory and writes one `struc_WC` file into each numbered state directory, such as `mcprocess/000031/struc_WC`. Each line has two tab-separated fields:
-
-```text
-WC_B_Nb    value
-WC_Nb_Ta   value
-```
-
-The interstitial-metal Warren-Cowley parameter is computed as:
-
-```text
-alpha(I-M) = 1 - P(M around I within cutoff) / c_M
-```
-
-The metal-metal form uses the same convention for metal neighbors around a chosen metal species.
-
-To package all accepted structures and build a summary table:
-
-```bash
 packmc
 ```
 
-This creates:
+> [!NOTE]
+> Both tools read `mcprocess/`. If the run used `--pack-every`, unpack the archives first:
+>
+> ```bash
+> for f in mcprocess_packed/*.tar.gz; do tar -xzf "$f" -C mcprocess; done
+> ```
 
-- `mcprocess_CONTCARs/`, containing `CONTCAR000001`, `CONTCAR000002`, ...
-- `mcprocess_CONTCARs.tar`
-- `mcprocess_summary.tsv`
+### More options
 
-By default, `packmc` looks for `mcprocess/` under the current directory. Use `--root RUN_ROOT` if you want to run it from elsewhere. While running, it prints progress for the main stages: collecting `CONTCAR` files, writing the tar archive, scanning `struc_*` files, and writing the summary table.
-
-The summary table columns are:
-
-- MC state number
-- energy
-- trial mode from `meta.json`
-- one column for every statistic already found in `struc_*` files, including precomputed `struc_WC`
+`paipai --help` lists every option. Design notes are in [docs/](docs/), and the [upstream README](https://github.com/siyazhu/PAIPAI/blob/v2.0-dev/README.md) has the full option tables and a description of each move type.
 
 ---
 
-## 7. GPU support
+## License
 
-PAIPAI v2.0 supports:
-- GPU-accelerated MLIP structural relaxation
-- GPU-accelerated energy evaluation
+Distributed under the MIT License. See [LICENSE](LICENSE) for details. `include/json.hpp` is third-party code with its own license notice.
 
-GPU usage can be enabled using:
+---
 
-```bash
---device cuda
+## Citation
+
+PAIPAI was written by Siya Zhu. If you use it in your research, please cite:
+
+> Zhu, S., & Arróyave, R. (2026). Ground-state structure search of defective high-entropy alloys using machine-learning potentials and Monte Carlo sampling. *Computational Materials Science*, 270, 114752. https://doi.org/10.1016/j.commatsci.2026.114752
+
+> Zhu, S. (2026). siyazhu/PAIPAI: PAIPAI V2.0 (v2.0). Zenodo. https://doi.org/10.5281/zenodo.21480012
+
+```bibtex
+@article{zhu_2026_paipai,
+  author  = {Zhu, Siya and Arróyave, Raymundo},
+  title   = {Ground-state structure search of defective high-entropy alloys using machine-learning potentials and Monte Carlo sampling},
+  journal = {Computational Materials Science},
+  volume  = {270},
+  pages   = {114752},
+  year    = {2026},
+  doi     = {10.1016/j.commatsci.2026.114752},
+}
+
+@software{zhu_2026_21480012,
+  author    = {Zhu, Siya},
+  title     = {siyazhu/PAIPAI: PAIPAI V2.0},
+  version   = {v2.0},
+  month     = jul,
+  year      = 2026,
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.21480012},
+  url       = {https://doi.org/10.5281/zenodo.21480012},
+}
 ```
-
-Worker processes can also be distributed across multiple GPUs using round-robin assignment.
-
----
-
-## 8. Bug fixes and workflow cleanup
-
-PAIPAI v2.0 additionally:
-- fixes overall atomic drift issues
-- simplifies output files
-- cleans `refine_outbox` and temporary outputs more aggressively
-- improves worker scheduling
-- fixes several miscellaneous bugs
-
----
-
-# Examples
-
-Example scripts and input files are provided in:
-
-```text
-examples/
-```
-
-including:
-- CPU search examples
-- GPU finite-temperature examples
-- SLURM submission scripts
-- Sample struc.in file:
-    - struc\_TiVCrRe\_Slab.in: input structure for Ti19V77Cr26Re6 slab structure;
-    - struc\_NbTaTiHf\_Bulk\_B.in: input structure for Nb113Ti63Ta37Hf37 bulk structure, with 8 Boron interstitials;
-    - struc\_NbTaTiHf\_GB\_BO.in: input structure for Nb90Ti50Ta30Hf30 sigma-5(120) grain boundary structure, with 4 Boron and 4 Oxygen interstitials. 
----
-
-# Citation
-
-Software DOI: [10.5281/zenodo.21480012](https://doi.org/10.5281/zenodo.21480012)
-
-If you use PAIPAI in academic work, please cite the associated publications: Zhu, Siya, and Raymundo Arróyave. "Ground-state structure search of defective high-entropy alloys using machine-learning potentials and Monte Carlo sampling." Computational Materials Science 270 (2026): 114752. https://doi.org/10.1016/j.commatsci.2026.114752
-
----
-
-# License
-
-PAIPAI is released under the MIT License. See [LICENSE](LICENSE).
-
-This repository includes third-party code with its own license notices, such as `include/json.hpp`.
