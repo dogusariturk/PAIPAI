@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(PAIPAI VERSION 2.0.0 LANGUAGES CXX)
+project(PAIPAI VERSION 2.0.1 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
