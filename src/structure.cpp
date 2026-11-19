@@ -1504,14 +1504,14 @@ void Structure::outputsave(const char* filename){
 
 
 void Structure::shuffle(){
-	int i,j,a,b;
-	int shuffle_times=200;
-	srand((unsigned)time(NULL));
-	for (i=0;i<shuffle_times;i++){
-		a=rand()%num_metallic_atoms;
-		b=rand()%num_metallic_atoms;
-		cout << "we swap  " << a << " & " <<b<<endl;
-		swapMetal(a,b);
+	int i,j,a;
+	// Fisher-Yates shuffle of the metal occupations: every arrangement with the input
+	// composition is equally likely. 200 random pair swaps (many of them between atoms of
+	// the same element) left most atoms of an ordered input on their original sites.
+	// Uses the generator seeded in main(), so --seed also fixes the starting structure.
+	for (i = num_metallic_atoms - 1; i > 0; i--){
+		j = rand() % (i + 1);
+		std::swap(atomtype[i], atomtype[j]);
 	}
 
 	for (i = 0; i < num_interstitial; i++){
