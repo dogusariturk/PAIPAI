@@ -18,7 +18,7 @@ Slow worker: refine-only, consuming jobs from waiting_pool.
     ROOT/counters/slow_count incremented for each claimed job.
 """
 
-import os, sys, json, time, tempfile, signal
+import inspect, os, sys, json, time, tempfile, signal
 from pathlib import Path
 import numpy as np
 from pymatgen.core import Structure
@@ -192,13 +192,15 @@ def main():
     for d in (WORK, OUT, REPT):
         d.mkdir(parents=True, exist_ok=True)
 
-    calc = GraceCalculator(
-        model=args.model,
-        device=args.device,
-        verbose=True,
-        fmax=args.fmax_refine,
-        steps=args.max_steps_refine,
-    )
+    # MaterialsFramework 1.x GraceCalculator has no device= option (passing it fails in
+    # object.__init__). TensorFlow uses the GPU the wrapper exposes in CUDA_VISIBLE_DEVICES,
+    # so only --device cpu needs handling: hide every GPU.
+    calc_kwargs = dict(model=args.model, verbose=True, fmax=args.fmax_refine, steps=args.max_steps_refine)
+    if "device" in inspect.signature(GraceCalculator).parameters:
+        calc_kwargs["device"] = args.device
+    elif args.device == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    calc = GraceCalculator(**calc_kwargs)
     sys.stderr.write(f"[{args.worker_id}] initialized @ {ROOT}\n")
 
     stop = {"flag": False}
