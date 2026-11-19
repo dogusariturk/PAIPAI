@@ -89,6 +89,11 @@ Args parse_args(int argc, char** argv){
         std::cerr << "MC move probabilities are incorrect. Please check input parameters.\n";
         std::exit(2);
     }
+    if (a.p_exch_metal > 0 || a.p_exch_inter > 0){
+        // apply_random_mc_move() has no exchange moves yet; a draw for one was silently redrawn.
+        std::cerr << "--p-exch-metal and --p-exch-inter are not implemented; set them to 0.\n";
+        std::exit(2);
+    }
     if (a.mode != "search" && a.mode != "finiteT") {
         std::cerr << "Unknown --mode: " << a.mode
                   << " (valid: search, finiteT)\n";
