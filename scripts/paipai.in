@@ -77,6 +77,7 @@ Monte Carlo options:
   --intsite-neighbor-cutoff X   Cutoff for interstitial-metal neighbor map (default: ${INTSITE_NEIGHBOR_CUTOFF})
   --intsite-hop-cutoff X        Cutoff for local interstitial hop graph (default: ${INTSITE_HOP_CUTOFF})
   --interstitial-site-cutoff X  Max relaxed interstitial distance to assigned site (default: ${INTERSTITIAL_SITE_CUTOFF})
+  --seed N                      Random seed for moves and Metropolis tests (default: drawn from the OS)
 
 Other:
   -h, --help                    Show this help message

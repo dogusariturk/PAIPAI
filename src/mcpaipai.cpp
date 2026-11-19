@@ -38,6 +38,8 @@ struct Args {
     double interstitial_site_cutoff = 1.5; // max relaxed interstitial distance to assigned site (Angstrom)
     std::string resume_state_dir;          // existing SAVE/CONTCAR/energy seed
     bool continue_run = false;             // continue from ./mcprocess latest accepted state
+    unsigned long long seed = 0;           // RNG seed (--seed); drawn from std::random_device if not given
+    bool seed_given = false;
 };
 
 void print_help(const char* prog){
@@ -49,7 +51,7 @@ void print_help(const char* prog){
               << "[--intsite-neighbor-cutoff R] [--intsite-hop-cutoff R] "
               << "[--mode search|finiteT] [--finiteT] "
               << "[--interstitial-site-cutoff R] "
-              << "[--resume-state DIR] [--continue]\n";
+              << "[--resume-state DIR] [--continue] [--seed N]\n";
 }
 
 Args parse_args(int argc, char** argv){
@@ -78,6 +80,7 @@ Args parse_args(int argc, char** argv){
         else if (s=="--interstitial-site-cutoff"){ need("--interstitial-site-cutoff"); a.interstitial_site_cutoff=std::stod(argv[++i]); }
         else if (s=="--resume-state"){ need("--resume-state"); a.resume_state_dir=argv[++i]; }
         else if (s=="--continue"){ a.continue_run=true; }
+        else if (s=="--seed"){ need("--seed"); a.seed=std::stoull(argv[++i]); a.seed_given=true; }
         else { std::cerr<<"Unknown arg: "<<s<<"\n"; print_help(argv[0]); std::exit(2); }
     }
     int sum = a.p_swap_metal + a.p_swap_inter + a.p_hop_inter + a.p_cluster_inter +
@@ -1003,10 +1006,17 @@ void wait_for_initial_state(const fs::path& root,
 
 int main(int argc, char** argv){
     std::ios::sync_with_stdio(false);
-    std::srand((unsigned)std::time(nullptr));
-    std::mt19937_64 rng((unsigned)std::time(nullptr));
 
     Args cfg = parse_args(argc, argv);
+    // time() has a resolution of one second, so runs started in the same second drew the same
+    // moves. Use --seed for a reproducible run, std::random_device otherwise.
+    if (!cfg.seed_given) {
+        std::random_device rd;
+        cfg.seed = ((unsigned long long)rd() << 32) ^ rd();
+    }
+    std::srand((unsigned)(cfg.seed ^ (cfg.seed >> 32)));
+    std::mt19937_64 rng(cfg.seed);
+    std::cout << "[INFO] RNG seed = " << cfg.seed << "\n";
     const int SUMP = cfg.p_swap_metal + cfg.p_swap_inter +
                      cfg.p_hop_inter +
                      cfg.p_cluster_inter +
@@ -1076,6 +1086,7 @@ int main(int argc, char** argv){
         << " interstitial_site_cutoff=" << cfg.interstitial_site_cutoff
         << " resume_state=" << (cfg.resume_state_dir.empty() ? "<none>" : cfg.resume_state_dir)
         << " continue=" << (cfg.continue_run ? "true" : "false")
+        << " seed=" << cfg.seed
         << "\n";
 
     bool have_state = false;
