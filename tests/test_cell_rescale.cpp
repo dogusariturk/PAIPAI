@@ -1,7 +1,7 @@
 // Regression test: interstitial sites must follow a variable-cell relaxation.
 //
 // A 6x6x6 bcc Nb cell with tetrahedral interstitial sites is "relaxed" by stretching the cell
-// along x by the ratio seen in a NbTaTiZrHf + B search (20.83 / 19.92 A), with every atom at an
+// along x by about 4.6%, with every atom at an
 // unchanged fractional position. Then:
 //   1. updateCoordinatesFromContcar() must place every site at its stretched reference position,
 //   2. reconcileInterstitialSitesFromContcar() must keep all interstitials on their sites
